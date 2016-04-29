@@ -202,3 +202,128 @@ function displayAbbreviations() {
 addLoadEvent(stripleTables);
 addLoadEvent(highlightRows);
 addLoadEvent(displayAbbreviations);
+
+
+/*            contact.html页面点击label获得焦点              */
+function focusLabels () {
+	if (!document.getElementsByTagName) { return false; }
+	var labels = document.getElementsByTagName('label');
+	for (var i = 0; i < labels.length; i++) {
+		if (!labels[i].getAttribute('id')) { continue; }
+		labels[i].onclick = function () {
+			var id = labels[i].getAttribute('id');
+			if (!document.getElementById(id)) { return false; }
+			var ele = document.getElementById(id);
+			ele.focus();
+		}
+	}
+}
+function isFilled (field) {
+	if (field.value.replace(' ','').length === 0) { return false; }
+	var placeholder = field.placeholder || field.getAttribute('placeholder');
+	return (field.value !==  placeholder);
+}
+function isEmail (field) {
+	return ((field.value.indexOf('@') !== -1) && (field.value.indexOf('.') !== -1));
+}
+function validateForm (whichform) {
+	for (var i = 0; i < whichform.elements.length; i++) {
+		var ele = whichform.elements[i];
+		if (ele.required === 'required') {
+			if (!isFilled(ele)) {
+				alert("Please fill in the " + ele.name + " field.");
+				return false;
+			}
+		}
+		if (ele.type === 'email') {
+			if (!isEmail(ele)) {
+				alert("The " + ele.name + " field must be a valid email address.");
+				return false;
+			}
+		}
+	}
+	return true;
+}
+function prepareForms () {
+	for (var i = 0; i < document.forms.length; i++) {
+		var thisform = document.forms[i];
+		thisform.onsubmit = function () {
+			if(!validateForm(thisform))  return false;
+			var article = document.getElementsByTagName('article')[0];
+			if (submitFormWithAjax(this, article)) { return false;}
+			return true;
+		}
+	}
+}
+addLoadEvent(prepareForms);
+
+
+/*       提交表单后使用AJAX加载提交成功提示信息        */
+function getHTTPObject () {
+	if (typeof XMLHttpRequest == "undefined") {
+		XMLHttpRequest = function () {
+			try {
+				return new ActiveXObject("Msxml2.XMLHTTP.6.0");
+			} catch(e) {
+				// statements
+				console.log(e);
+			}
+			try {
+				return new ActiveXObject("Msxml2.XMLHTTP.3.0");
+			} catch(e) {
+				// statements
+				console.log(e);
+			}
+			try {
+				return new ActiveXObject("Msxml2.XMLHTTP");
+			} catch(e) {
+				// statements
+				console.log(e);
+			}
+			return false;
+		}
+	}
+	return new XMLHttpRequest();
+}
+function displayAjaxLoading (ele) {
+	while (ele.hasChildNodes()) {
+		ele.removeChild(ele.lastChild);
+	}
+	var content = document.createElement('img');
+	content.setAttribute('src', 'images/loading.gif');
+	content.setAttribute('alt', 'Loading...');
+	ele.appendChild(content);
+}
+/*   跨域访问本地文件需要给chrome添加 --allow-file-access-from-files权限   */
+function submitFormWithAjax (whichform, thetarget) {
+	var request = getHTTPObject();
+	if (!request) { return false; }
+	displayAjaxLoading(thetarget);
+	var dataParts = [];
+	var ele;
+	for (var i = 0; i < whichform.elements.length; i++) {
+		ele = whichform.elements[i];
+		dataParts[i] = ele.name + '=' + encodeURIComponent(ele.value);
+	}
+	// console.log(whichform.elements);
+	var data = dataParts.join('&');
+	// console.log(data);
+	request.open('POST', whichform.getAttribute('action'), true);
+	request.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+	request.onreadystatechange = function () {
+		if (request.readyState == 4) {
+			if (request.status == 200 || request.status == 0) {
+				var matches = request.responseText.match(/<article>([\s\S]+)<\/article>/);
+				if (matches.length > 0) {
+					thetarget.innerHTML = matches[1];
+				} else {
+					thetarget.innerHTML = '<p>Oops, there was an error. Sorry.</p>';
+				}
+			} else {
+				thetarget.innerHTML = '<p>' + request.statusText + '</p>';
+			}
+		}
+	};
+	request.send(data);
+	return true;
+}
